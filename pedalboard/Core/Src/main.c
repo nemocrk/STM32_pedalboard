@@ -113,6 +113,11 @@ enum PCM3168reg {RESET_CONTROL = 0x40, DAC_CONTROL_1, DAC_CONTROL_2,
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 /* USER CODE BEGIN PFP */
+void lcd_send_cmd (char cmd);
+void lcd_send_data (char data);
+void lcd_send_string (char *str);
+void lcd_put_cur(int row, int col);
+void lcd_init (void);
 
 /* USER CODE END PFP */
 
@@ -124,23 +129,34 @@ HAL_StatusTypeDef PCM3168A_WriteReg(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_
     data[0] = reg;
     data[1] = value;
     
-    char buffer[8192] = "";
+    char buffer[16] = "";
     int i = 0;
     HAL_StatusTypeDef actualStatus = HAL_OK;
-    for(i = 0; i<256; i++)
+    for(i = 0; i<128; i++)
     {
-        actualStatus = HAL_I2C_Master_Transmit(hi2c, i, data, 2, HAL_MAX_DELAY);
+        actualStatus = HAL_I2C_Master_Transmit(hi2c, i, data, 2, 100);
         if(actualStatus == HAL_OK)
         {
-            snprintf(buffer,8192,"%sMaybe this: %d [%d]\r\n",buffer,i,hi2c->ErrorCode);
+            snprintf(buffer,16,"%d [%d]",i,hi2c->ErrorCode);
+            lcd_put_cur(0, 0);
+            lcd_send_string("Maybe this:");
+            lcd_put_cur(1, 0);
+            lcd_send_string(buffer);
             break;
         }
         else
-            snprintf(buffer,8192,"%sNot this: %d [%d]\r\n",buffer,i,hi2c->ErrorCode);
+        {
+            snprintf(buffer,16,"%d [%d]",i,hi2c->ErrorCode);
+            lcd_put_cur(0, 0);
+            lcd_send_string("Not this:");
+            lcd_put_cur(1, 0);
+            lcd_send_string(buffer);
+        }
+        HAL_Delay(200);
     }
     
 
-    return HAL_I2C_Master_Transmit(hi2c, PCM3168A_I2C_ADDR, data, 2, HAL_MAX_DELAY);
+    return HAL_I2C_Master_Transmit(hi2c, PCM3168A_I2C_ADDR, data, 2, 100);
 }
 
 // Function to read from PCM3168A register
@@ -158,8 +174,10 @@ HAL_StatusTypeDef PCM3168A_ReadReg(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_t
 // Initialize DSP structure
 void PCM3168A_DSP_Init(PCM3168A_DSP* dsp) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
     HAL_Delay(1000);
 
     uint8_t output;
@@ -284,6 +302,72 @@ void FrequencyDetector_Init(FrequencyDetector* detector) {
     detector->sample_count = 0;
     detector->current_frequency = 0.0f;
 }
+
+void lcd_send_cmd (char cmd)
+{
+  char data_u, data_l;
+  data_u = (cmd&0xf0);
+  data_l = ((cmd<<4)&0xf0);
+  uint8_t data_t[4];  
+  data_t[0] = data_u|0x0C;  //en=1, rs=0 -> bxxxx1100
+  data_t[1] = data_u|0x08;  //en=0, rs=0 -> bxxxx1000
+  data_t[2] = data_l|0x0C;  //en=1, rs=0 -> bxxxx1100
+  data_t[3] = data_l|0x08;  //en=0, rs=0 -> bxxxx1000
+  HAL_I2C_Master_Transmit (&hi2c4, SLAVE_ADDRESS_LCD,(uint8_t *) data_t, 4, 100);
+}
+void lcd_send_data (char data)
+{
+	char data_u, data_l;
+	uint8_t data_t[4];
+	data_u = (data&0xf0);
+	data_l = ((data<<4)&0xf0);
+	data_t[0] = data_u|0x0D;  //en=1, rs=1 -> bxxxx1101
+	data_t[1] = data_u|0x09;  //en=0, rs=1 -> bxxxx1001
+	data_t[2] = data_l|0x0D;  //en=1, rs=1 -> bxxxx1101
+	data_t[3] = data_l|0x09;  //en=0, rs=1 -> bxxxx1001
+	HAL_I2C_Master_Transmit (&hi2c4, SLAVE_ADDRESS_LCD,(uint8_t *) data_t, 4, 100);
+}
+void lcd_init (void)
+{
+  // 4 bit initialisation
+  HAL_Delay(50);  // wait for >40ms
+  lcd_send_cmd (0x30);
+  HAL_Delay(5);  // wait for >4.1ms
+  lcd_send_cmd (0x30);
+  HAL_Delay(1);  // wait for >100us
+  lcd_send_cmd (0x30);
+  HAL_Delay(10);
+  lcd_send_cmd (0x20);  // 4bit mode
+  HAL_Delay(10);
+
+  // display initialisation
+  lcd_send_cmd (0x28); // Function set --> DL=0 (4 bit mode), N = 1 (2 line display) F = 0 (5x8 characters)
+  HAL_Delay(1);
+  lcd_send_cmd (0x08); //Display on/off control --> D=0,C=0, B=0  ---> display off
+  HAL_Delay(1);
+  lcd_send_cmd (0x01);  // clear display
+  HAL_Delay(2);
+  lcd_send_cmd (0x06); //Entry mode set --> I/D = 1 (increment cursor) & S = 0 (no shift)
+  HAL_Delay(1);
+  lcd_send_cmd (0x0C); //Display on/off control --> D = 1, C and B = 0. (Cursor and blink, last two bits)
+}
+void lcd_send_string (char *str)
+{
+  while (*str) lcd_send_data (*str++);
+}
+void lcd_put_cur(int row, int col)
+{
+    switch (row)
+    {
+        case 0:
+            col |= 0x80;
+            break;
+        case 1:
+            col |= 0xC0;
+            break;
+    }
+    lcd_send_cmd (col);
+}
 /* USER CODE END 0 */
 
 /**
@@ -322,7 +406,14 @@ int main(void)
   MX_SAI1_Init();
   MX_I2C1_Init();
   MX_FMC_Init();
+  MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
+  // Display Strings
+  lcd_init ();
+  lcd_put_cur(0, 0);
+  lcd_send_string ("Starting");
+  lcd_put_cur(1, 0);
+  lcd_send_string("Device...");
   // Initialize DSP
   dsp.hi2c1 = &hi2c1;
   PCM3168A_DSP_Init(&dsp);
@@ -339,10 +430,12 @@ int main(void)
   }*/
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_RESET);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
 	  HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_13);

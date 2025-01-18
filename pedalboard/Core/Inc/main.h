@@ -76,6 +76,7 @@ void Error_Handler(void);
 
 #define PCM3168A_I2C_ADDR          0x44
 
+#define SLAVE_ADDRESS_LCD 0x4C // change this according to ur setup
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
