@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Build & Debug Microcontroller - ST-Link",
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}\\pedalboard",
             "type": "cortex-debug",
             "executable": "${command:cmake.launchTargetPath}",
             // Let CMake extension decide executable: "${command:cmake.launchTargetPath}"
@@ -33,7 +33,7 @@
         },
         {
             "name": "Attach to Microcontroller - ST-Link",
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}\\pedalboard",
             "type": "cortex-debug",
             "executable": "${command:cmake.launchTargetPath}",
             // Let CMake extension decide executable: "${command:cmake.launchTargetPath}"

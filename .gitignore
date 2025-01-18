@@ -9,10 +9,4 @@ Release/
 
 # STM32 git ignore
 *.mxproject
-
-build/
-cmake/
-Core/
-Drivers/
-Inc/
-Startup/
+pedalboard/Drivers/

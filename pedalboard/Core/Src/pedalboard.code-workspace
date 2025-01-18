@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"name": "pedalboard",
+			"path": "../.."
+		},
+		{
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"stm32h7xx_hal_sai.h": "c",
+			"stm32h7xx_hal_def.h": "c",
+			"main.h": "c",
+			"stm32h7xx_hal.h": "c",
+			"stm32h7xx_hal_conf.h": "c",
+			"stm32_hal_legacy.h": "c",
+			"dma.h": "c"
+		}
+	}
+}
