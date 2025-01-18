@@ -132,7 +132,7 @@ HAL_StatusTypeDef PCM3168A_WriteReg(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_
     char buffer[16] = "";
     int i = 0;
     HAL_StatusTypeDef actualStatus = HAL_OK;
-    for(i = 0; i<128; i++)
+    for(i = 0; i<256; i++)
     {
         actualStatus = HAL_I2C_Master_Transmit(hi2c, i, data, 2, 100);
         if(actualStatus == HAL_OK)
